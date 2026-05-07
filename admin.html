@@ -5,10 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Lumen COMMAND</title>
     <link rel="stylesheet" href="style.css">
+    <style>
+        .off-duty-active { background: #dc3545 !important; color: white; }
+        .on-duty { background: #28a745 !important; color: white; }
+        .on-break { background: #ffc107 !important; color: black; }
+        #admin-controls button { padding: 10px 15px; margin-left: 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; background: #444; color: #ccc; }
+    </style>
 </head>
 <body class="admin-body">
-    <header class="admin-header">
-        <div class="logo">LUMEN COMMAND</div>
+    <header class="admin-header" style="display: flex; justify-content: space-between; align-items: center; background: #000; padding: 10px; border-bottom: 2px solid #ffc107;">
+        <div class="logo" style="color: #ffc107; font-weight: bold;">LUMEN COMMAND</div>
         <div id="admin-controls">
             <button onclick="setStatus('on')" id="btn-on">ON DUTY</button>
             <button onclick="setStatus('break')" id="btn-break">BREAK</button>
@@ -16,7 +22,7 @@
         </div>
     </header>
 
-    <main id="admin-feed">
+    <main id="admin-feed" style="padding: 15px;">
         <div id="request-list"></div>
     </main>
 
@@ -31,17 +37,20 @@
         let currentStatus = "off";
         let lastCount = 0;
 
+        // --- SECTION 1: STATUS SYNC ---
+        // This handles the three-button logic in just 6 lines
         window.setStatus = (s) => set(ref(db, 'system_settings/status'), s);
 
         onValue(ref(db, 'system_settings/status'), (snap) => {
             const s = snap.val() || 'off';
-            document.getElementById('btn-on').className = s === 'on' ? 'on-duty' : 'off-duty';
-            document.getElementById('btn-break').className = s === 'break' ? 'on-break' : 'off-duty';
-            document.getElementById('btn-off').className = s === 'off' ? 'off-duty-active' : 'off-duty';
+            document.getElementById('btn-on').className = (s === 'on' ? 'on-duty' : '');
+            document.getElementById('btn-break').className = (s === 'break' ? 'on-break' : '');
+            document.getElementById('btn-off').className = (s === 'off' ? 'off-duty-active' : '');
         });
 
+        // --- SECTION 2: CANCELLATION MENU ---
         window.cancelJob = (id) => {
-            const r = prompt("1: Capacity (No Charge)\n2: No-Show (Fee applies)\n3: Out of Zone/Safety\n4: Clear/Delete");
+            const r = prompt("1: Capacity (No Charge)\n2: No-Show (Fee applies)\n3: Safety/Zone\n4: DELETE/Clear");
             if (r === "1") update(ref(db, 'requests/'+id), {status:'cancelled_tech', reason:'Job exceeds capacity'});
             else if (r === "2") update(ref(db, 'requests/'+id), {status:'cancelled_noshow', reason:'Customer No-Show'});
             else if (r === "3") update(ref(db, 'requests/'+id), {status:'cancelled_safety', reason:'Safety/Zone Issue'});
@@ -50,39 +59,56 @@
 
         window.updateJob = (id, s) => update(ref(db, 'requests/'+id), { status: s });
 
+        // --- SECTION 3: FIFO LOGIC & RENDERING ---
         onValue(ref(db, 'requests'), (snapshot) => {
             const data = snapshot.val();
             const list = document.getElementById('request-list');
             list.innerHTML = "";
             
             if (data) {
-                const count = Object.keys(data).length;
-                if (count > lastCount) new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
-                lastCount = count;
+                // This 'sort' function replaces a lot of old manual loops
+                const sortedJobs = Object.keys(data).map(id => ({
+                    id: id,
+                    ...data[id]
+                })).sort((a, b) => a.timestamp - b.timestamp);
 
-                for (let id in data) {
-                    const req = data[id];
-                    if (!req || req.status === 'cancelled' || req.status.startsWith('cancelled_') || req.status === 'completed') continue;
+                const activeJobs = sortedJobs.filter(j => j.status === 'pending' || j.status === 'accepted');
+                if (activeJobs.length > lastCount) new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+                lastCount = activeJobs.length;
 
+                activeJobs.forEach((req) => {
+                    const diff = Math.floor((Date.now() - req.timestamp) / 60000);
                     const card = document.createElement('div');
                     card.className = 'job-card';
-                    if (req.status === 'accepted') card.style.borderColor = "#28a745";
+                    card.style.background = "#1e1e1e";
+                    card.style.padding = "15px";
+                    card.style.marginBottom = "10px";
+                    card.style.borderRadius = "8px";
+                    card.style.borderLeft = (req.status === 'accepted') ? "8px solid #28a745" : "8px solid #ffc107";
 
                     card.innerHTML = `
-                        <h3>${req.name}</h3>
-                        <p>${req.service.toUpperCase()} | ${req.on_interstate === 'yes' ? req.direction : 'LOCAL'}</p>
-                        <div class="admin-actions">
+                        <div style="display:flex; justify-content:space-between; color:white;">
+                            <h3 style="margin:0;">${req.name || 'Unknown'}</h3>
+                            <span style="color:${diff >= 20 ? '#dc3545' : '#ffc107'}; font-weight:bold;">⏳ ${diff}m</span>
+                        </div>
+                        <p style="color:#ccc; margin:10px 0;">
+                            <b>${req.service.toUpperCase()}</b><br>
+                            ${req.on_interstate === 'yes' ? `I-30 ${req.direction} @ MM ${req.mile_marker}` : 'Local Call'}
+                        </p>
+                        <div class="admin-actions" style="display:flex; gap:5px;">
                             ${req.status === 'pending' ? 
-                                `<button onclick="updateJob('${id}', 'accepted')" style="background:#28a745;">ACCEPT</button>` : 
-                                `<button onclick="window.open('tel:${req.phone}')" style="background:#444;">CALL</button>
-                                 <button onclick="window.open('https://www.google.com/maps/search/?api=1&query=${req.location?.lat},${req.location?.lng}')" style="background:#007bff;">NAV</button>
-                                 <button onclick="updateJob('${id}', 'completed')" style="background:#28a745;">FINISH</button>`
+                                `<button onclick="updateJob('${req.id}', 'accepted')" style="background:#28a745; color:white; border:none; padding:8px; flex:1; border-radius:4px; font-weight:bold;">ACCEPT</button>` : 
+                                `<button onclick="window.open('tel:${req.phone}')" style="background:#444; color:white; border:none; padding:8px; flex:1; border-radius:4px;">CALL</button>
+                                 <button onclick="window.open('https://www.google.com/maps/search/?api=1&query=${req.location?.lat},${req.location?.lng}')" style="background:#007bff; color:white; border:none; padding:8px; flex:1; border-radius:4px;">NAV</button>
+                                 <button onclick="updateJob('${req.id}', 'completed')" style="background:#28a745; color:white; border:none; padding:8px; flex:1; border-radius:4px; font-weight:bold;">FINISH</button>`
                             }
-                            <button onclick="cancelJob('${id}')" style="background:#dc3545;">CANCEL</button>
+                            <button onclick="cancelJob('${req.id}')" style="background:#dc3545; color:white; border:none; padding:8px; flex:1; border-radius:4px;">CANCEL</button>
                         </div>
                     `;
-                    list.prepend(card);
-                }
+                    list.appendChild(card);
+                });
+            } else {
+                list.innerHTML = "<p style='color:#666; text-align:center;'>No active requests.</p>";
             }
         });
     </script>

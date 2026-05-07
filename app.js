@@ -7,18 +7,9 @@ const db = getDatabase(app);
 
 let userLocation = null;
 let currentRequestId = null;
-let activeJobsCount = 0;
+let myTimestamp = null;
 
-// 1. MONITOR QUEUE
-onValue(ref(db, 'requests'), (snap) => {
-    const data = snap.val();
-    activeJobsCount = 0;
-    if (data) {
-        Object.values(data).forEach(req => { if (req.status === 'accepted') activeJobsCount++; });
-    }
-});
-
-// 2. GATEKEEPER
+// 1. GATEKEEPER
 onValue(ref(db, 'system_settings/status'), (snap) => {
     const s = snap.val() || 'off';
     const form = document.getElementById('request-section');
@@ -35,7 +26,7 @@ onValue(ref(db, 'system_settings/status'), (snap) => {
     }
 });
 
-// 3. FORM HELPERS
+// 2. FORM HELPERS
 document.querySelectorAll('input[name="on_interstate"]').forEach(r => {
     r.addEventListener('change', e => document.getElementById('interstate-details').style.display = e.target.value === 'yes' ? 'block' : 'none');
 });
@@ -47,10 +38,11 @@ document.getElementById('geo-btn').addEventListener('click', () => {
     });
 });
 
-// 4. SUBMIT & STATUS SYNC
+// 3. SUBMIT & DYNAMIC QUEUE
 document.getElementById('help-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     currentRequestId = Date.now().toString();
+    myTimestamp = Date.now();
     const isI = document.querySelector('input[name="on_interstate"]:checked').value;
 
     await set(ref(db, 'requests/' + currentRequestId), {
@@ -62,44 +54,52 @@ document.getElementById('help-form').addEventListener('submit', async (e) => {
         mile_marker: isI === 'yes' ? document.getElementById('mile-marker').value : 'Local',
         location: userLocation || {lat: 0, lng: 0},
         status: 'pending',
-        timestamp: Date.now()
+        timestamp: myTimestamp
     });
 
     document.getElementById('request-section').style.display = 'none';
     document.getElementById('status-section').style.display = 'block';
 
-    onValue(ref(db, 'requests/' + currentRequestId), (snap) => {
-        const data = snap.val();
-        if (!data) return;
+    // Monitor the queue and this specific request
+    onValue(ref(db, 'requests'), (snap) => {
+        const allData = snap.val();
+        if (!allData || !allData[currentRequestId]) return;
 
+        const myData = allData[currentRequestId];
         const pill = document.getElementById('status-pill');
         const title = document.getElementById('status-title');
         const body = document.getElementById('status-body');
 
-        if (data.status === 'pending') {
-            if (activeJobsCount > 0) {
+        // Logic: How many people have a status of 'accepted' or 'pending' AND a timestamp older than mine?
+        const activeRequests = Object.values(allData).filter(req => 
+            (req.status === 'accepted' || req.status === 'pending') && req.timestamp < myTimestamp
+        );
+        const myPosition = activeRequests.length + 1;
+
+        if (myData.status === 'pending') {
+            if (myPosition > 1) {
                 pill.className = "status-pill waitlist"; pill.textContent = "IN QUEUE";
                 title.textContent = "Technician Busy";
-                body.textContent = "You are currently on the waitlist. We will notify you when we head your way.";
+                body.innerHTML = `You are currently on our waitlist.<br><b>Your Position: #${myPosition}</b><br>We will head your way as soon as possible.`;
             } else {
                 pill.className = "status-pill pending"; pill.textContent = "PENDING";
                 title.textContent = "Dispatching...";
-                body.textContent = "Wait tight, reviewing your location now.";
+                body.textContent = "Technician is reviewing your location now.";
             }
-        } else if (data.status === 'accepted') {
+        } else if (myData.status === 'accepted') {
             pill.className = "status-pill enroute"; pill.textContent = "EN ROUTE";
             title.textContent = "Help is Coming!";
             body.innerHTML = "Lumen Tech is moving to your location.<br><b>Stay in your vehicle.</b>";
             document.getElementById('tech-link').style.display = "block";
-        } else if (data.status === 'completed') {
+        } else if (myData.status === 'completed') {
             pill.textContent = "FINISHED";
             title.textContent = "Mission Complete";
             body.innerHTML = "Service finalized. Drive safe!<br><br><b>Total: $25.00 Dispatch Fee</b>";
             document.getElementById('cancel-btn').style.display = "none";
-        } else if (data.status.startsWith('cancelled_')) {
+        } else if (myData.status.startsWith('cancelled_')) {
             pill.textContent = "CLOSED"; pill.style.background = "#444";
             title.textContent = "Request Closed";
-            body.innerHTML = `Reason: ${data.reason || 'Service unavailable'}`;
+            body.innerHTML = `Status: ${myData.reason || 'Service unavailable'}`;
             document.getElementById('cancel-btn').style.display = "none";
         }
     });
