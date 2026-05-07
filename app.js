@@ -7,63 +7,45 @@ const db = getDatabase(app);
 
 let userLocation = null;
 let currentRequestId = null;
-let heartbeatTimer;
 
-if ("Notification" in window) { Notification.requestPermission(); }
-
-// 1. Gatekeeper Status
-onValue(ref(db, 'system_settings/status'), (snapshot) => {
-    const status = snapshot.val();
-    const formSection = document.getElementById('request-section');
-    const gatekeeper = document.getElementById('gatekeeper-msg');
-    if (status === "break") {
-        formSection.style.display = "none";
-        gatekeeper.style.display = "block";
-        gatekeeper.innerHTML = `<div class="status-card"><h2>Tech on Break</h2><p>Lumen Auto Tech is finishing active calls. Back online shortly.</p></div>`;
-    } else if (status === "off") {
-        formSection.style.display = "none";
-        gatekeeper.style.display = "block";
-        gatekeeper.innerHTML = `<h2>Closed</h2><p>Lumen Auto Tech is currently offline.</p>`;
-    } else {
-        formSection.style.display = "block";
-        gatekeeper.style.display = "none";
+// 1. Monitor active jobs for the waitlist
+let activeJobsCount = 0;
+onValue(ref(db, 'requests'), (snap) => {
+    const data = snap.val();
+    activeJobsCount = 0;
+    if (data) {
+        Object.values(data).forEach(req => {
+            if (req.status === 'accepted') activeJobsCount++;
+        });
     }
 });
 
-// 2. Form Toggles
-document.querySelectorAll('input[name="on_interstate"]').forEach(radio => {
-    radio.addEventListener('change', (e) => {
-        document.getElementById('interstate-details').style.display = e.target.value === 'yes' ? 'block' : 'none';
-    });
+// 2. Toggles
+document.querySelectorAll('input[name="on_interstate"]').forEach(r => {
+    r.addEventListener('change', e => document.getElementById('interstate-details').style.display = e.target.value === 'yes' ? 'block' : 'none');
 });
 
-// 3. GPS Logic
 document.getElementById('geo-btn').addEventListener('click', () => {
-    const status = document.getElementById('location-status');
-    status.textContent = "Locating...";
-    navigator.geolocation.getCurrentPosition((pos) => {
-        userLocation = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        status.textContent = "✅ Location Pinned!";
-        status.style.color = "#28a745";
-    }, () => {
-        status.textContent = "❌ GPS Error. Enable location.";
+    navigator.geolocation.getCurrentPosition(p => {
+        userLocation = { lat: p.coords.latitude, lng: p.coords.longitude };
+        document.getElementById('location-status').textContent = "✅ GPS Linked";
     });
 });
 
-// 4. Submit & Monitoring
+// 3. Submit
 document.getElementById('help-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     currentRequestId = Date.now().toString();
-    const isInterstate = document.querySelector('input[name="on_interstate"]:checked').value;
+    const isI = document.querySelector('input[name="on_interstate"]:checked').value;
 
     await set(ref(db, 'requests/' + currentRequestId), {
         name: document.getElementById('cust-name').value,
         phone: document.getElementById('cust-phone').value,
         service: document.getElementById('service-type').value,
-        on_interstate: isInterstate,
-        direction: isInterstate === 'yes' ? document.getElementById('direction').value : 'N/A',
-        mile_marker: isInterstate === 'yes' ? document.getElementById('mile-marker').value : 'Local',
-        location: userLocation || {lat: 0, lng: 0},
+        on_interstate: isI,
+        direction: isI === 'yes' ? document.getElementById('direction').value : 'N/A',
+        mile_marker: isI === 'yes' ? document.getElementById('mile-marker').value : 'Local',
+        location: userLocation || {lat:0, lng:0},
         status: 'pending',
         timestamp: Date.now()
     });
@@ -71,31 +53,46 @@ document.getElementById('help-form').addEventListener('submit', async (e) => {
     document.getElementById('request-section').style.display = 'none';
     document.getElementById('status-section').style.display = 'block';
 
-    // Start 10-min heartbeat
-    heartbeatTimer = setTimeout(() => {
-        if (confirm("Lumen Tech: Are you still at your location?")) { location.reload(); }
-        else { update(ref(db, 'requests/' + currentRequestId), { status: 'cancelled' }); location.reload(); }
-    }, 10 * 60 * 1000);
-
+    // Heartbeat for Waitlist UI
     onValue(ref(db, 'requests/' + currentRequestId), (snap) => {
         const data = snap.val();
-        const statusBox = document.getElementById('eta-box');
-        if (!data) { statusBox.innerHTML = "<span style='color:red;'>Declined / Unavailable</span>"; return; }
-        if (data.status === 'accepted') {
-            clearTimeout(heartbeatTimer);
-            statusBox.innerHTML = "<span style='color:green;'>Lumen Tech En Route!</span>";
-            if (Notification.permission === "granted") {
-                new Notification("Lumen Auto Tech", { body: "We are on the way!", icon: "logo.png" });
+        if (!data) return;
+
+        const pill = document.getElementById('status-pill');
+        const title = document.getElementById('status-title');
+        const body = document.getElementById('status-body');
+
+        if (data.status === 'pending') {
+            if (activeJobsCount > 0) {
+                pill.className = "status-pill waitlist";
+                pill.textContent = "WAITLISTED";
+                title.textContent = "You're in Queue";
+                body.textContent = "Technician is on another call. You are currently #1 in line.";
+            } else {
+                pill.className = "status-pill pending";
+                pill.textContent = "PENDING";
+                title.textContent = "Dispatching...";
+                body.textContent = "Technician is reviewing your location.";
             }
+        } else if (data.status === 'accepted') {
+            pill.className = "status-pill enroute";
+            pill.textContent = "EN ROUTE";
+            title.textContent = "Help is Coming!";
+            body.textContent = "Lumen Tech is moving to your location. Keep hazards on.";
+            document.getElementById('tech-link').style.display = "block";
             new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+        } else if (data.status === 'completed') {
+            pill.className = "status-pill enroute";
+            pill.style.background = "var(--success)";
+            pill.textContent = "FINISHED";
+            title.textContent = "Mission Complete";
+            body.innerHTML = "Service finalized. Drive safe!<br><br><b>Total: $25.00 Dispatch Fee</b>";
+            document.getElementById('cancel-btn').style.display = "none";
         }
     });
 });
 
 window.cancelRequest = function() {
-    if (currentRequestId && confirm("Cancel your request?")) {
-        update(ref(db, 'requests/' + currentRequestId), { status: 'cancelled' });
-        location.reload();
-    }
+    if (confirm("Cancel?")) { update(ref(db, 'requests/'+currentRequestId), {status:'cancelled'}); location.reload(); }
 };
 

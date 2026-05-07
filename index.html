@@ -3,64 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lumen Auto Tech | I-30 Roadside</title>
+    <title>Lumen Auto Tech | Dispatch</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
         <div class="logo">LUMEN AUTO TECH</div>
-        <a href="tel:5555555555" class="call-btn">CALL NOW</a>
+        <a href="tel:5015550000" id="tech-link" style="display:none; color:var(--primary); text-decoration:none; font-weight:bold;">📞 CALL TECH</a>
     </header>
 
     <main id="app-container">
+        <div id="gatekeeper-msg"></div>
+
         <section id="request-section">
-            <h1>Need Roadside Help?</h1>
-            <p>Rapid Response for the I-30 Corridor</p>
-            
+            <h1>Roadside Assistance</h1>
             <form id="help-form">
-                <input type="text" id="cust-name" placeholder="Your Name" required>
-                <input type="tel" id="cust-phone" placeholder="Phone Number" required>
-                
+                <input type="text" id="cust-name" placeholder="Name" required>
+                <input type="tel" id="cust-phone" placeholder="Phone" required>
                 <select id="service-type">
-                    <option value="tire">Flat Tire Change</option>
-                    <option value="jump">Battery Jumpstart</option>
+                    <option value="tire">Tire Change</option>
+                    <option value="jump">Jumpstart</option>
                     <option value="fuel">Fuel Delivery</option>
+                    <option value="lockout">Lockout</option>
                 </select>
-
-                <div class="form-group-dark">
-                    <label>Are you on the Interstate?</label>
-                    <div class="radio-group">
-                        <input type="radio" name="on_interstate" value="yes" id="is-i"> Yes
-                        <input type="radio" name="on_interstate" value="no" id="not-i" checked> No
-                    </div>
+                <div style="background:#222; padding:10px; border-radius:5px;">
+                    <label>On Interstate?</label>
+                    <input type="radio" name="on_interstate" value="yes"> Yes
+                    <input type="radio" name="on_interstate" value="no" checked> No
                 </div>
-
                 <div id="interstate-details" style="display:none;">
                     <select id="direction">
-                        <option value="none">-- Direction --</option>
-                        <option value="north">Toward Little Rock (Northbound)</option>
-                        <option value="south">Toward Hot Springs (Southbound)</option>
+                        <option value="north">Northbound (To Little Rock)</option>
+                        <option value="south">Southbound (To Hot Springs)</option>
                     </select>
                     <input type="text" id="mile-marker" placeholder="Mile Marker / Exit #">
                 </div>
-
-                <button type="button" id="geo-btn" class="geo-btn">📍 Pin My Location</button>
-                <p id="location-status">Location not set</p>
-                </div>
-
-                <button type="submit" id="pay-button">Request Dispatch</button>
+                <button type="button" id="geo-btn" class="geo-btn">📍 Pin Location</button>
+                <p id="location-status" style="font-size:0.8em; text-align:center;">GPS not set</p>
+                <button type="submit" class="geo-btn" style="background:white; color:black;">Request Help</button>
             </form>
         </section>
 
         <section id="status-section" style="display:none;">
             <div class="status-card">
-                <h2>Request Sent!</h2>
-                <p>Checking technician availability...</p>
-                <div id="eta-box">Connecting to Lumen Command...</div>
+                <div id="status-pill" class="status-pill pending">CONNECTING</div>
+                <h2 id="status-title">Request Received</h2>
+                <div id="status-body" style="margin:15px 0; color:#ccc;">
+                    Searching for technician availability...
+                </div>
+                <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
+                <button onclick="cancelRequest()" id="cancel-btn" class="geo-btn" style="background:#444;">Cancel Request</button>
             </div>
         </section>
     </main>
-
     <script type="module" src="app.js"></script>
 </body>
 </html>

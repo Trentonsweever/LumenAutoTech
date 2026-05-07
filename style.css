@@ -1,55 +1,34 @@
 :root {
-    --lumen-orange: #ff6600;
-    --dark-bg: #121212;
+    --primary: #ffc107;
+    --dark: #121212;
     --card-bg: #1e1e1e;
-    --input-bg: #2a2a2a;
+    --success: #28a745;
+    --danger: #dc3545;
 }
 
-body {
-    background-color: var(--dark-bg);
-    color: white;
-    font-family: 'Inter', -apple-system, sans-serif;
-    margin: 0; padding: 20px;
-}
+body { font-family: sans-serif; background: var(--dark); color: white; margin: 0; padding: 0; }
+header { background: #000; padding: 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid var(--primary); }
+.logo { font-weight: bold; letter-spacing: 1px; color: var(--primary); }
 
-header {
-    display: flex; justify-content: space-between; align-items: center;
-    padding-bottom: 20px; border-bottom: 2px solid var(--lumen-orange);
-}
+#app-container { padding: 20px; max-width: 500px; margin: auto; }
+input, select, .geo-btn { width: 100%; padding: 12px; margin: 10px 0; border-radius: 5px; border: none; box-sizing: border-box; }
+.geo-btn { background: var(--primary); font-weight: bold; cursor: pointer; }
 
-.logo { font-weight: 800; font-size: 1.4rem; letter-spacing: -1px; }
+/* Admin UI */
+.admin-actions { display: flex; gap: 5px; flex-wrap: wrap; }
+.admin-actions button { flex: 1; padding: 10px; color: white; border: none; border-radius: 4px; font-weight: bold; }
+.on-duty { background: var(--success); color: white; }
+.on-break { background: var(--primary); color: black; }
+.off-duty { background: var(--danger); color: white; }
 
-.call-btn {
-    background: var(--lumen-orange); color: white; padding: 10px 18px;
-    border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem;
-}
+/* Status Dashboard Card */
+.status-card { background: var(--card-bg); padding: 20px; border-radius: 10px; border: 1px solid #333; text-align: center; }
+.status-pill { display: inline-block; padding: 5px 15px; border-radius: 20px; font-size: 0.8em; font-weight: bold; margin-bottom: 10px; }
+.pending { background: #555; }
+.waitlist { background: #856404; color: #fff; animation: pulse 2s infinite; }
+.enroute { background: var(--success); }
 
-/* Form Styling */
-#help-form input, #help-form select {
-    width: 100%; padding: 15px; margin: 10px 0; box-sizing: border-box;
-    background: var(--input-bg); border: 1px solid #333; color: white; border-radius: 8px;
-}
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
 
-.form-group-dark { background: #1a1a1a; padding: 15px; border-radius: 8px; margin: 10px 0; }
-
-.geo-btn { 
-    background: #444; color: white; border: none; width: 100%; padding: 12px; 
-    border-radius: 8px; cursor: pointer; margin-top: 10px; font-weight: 600;
-}
-
-.upload-btn { background: #333; border: 1px dashed var(--lumen-orange); color: white; width: 100%; padding: 12px; border-radius: 8px; cursor: pointer; }
-
-#photo-preview { width: 100%; margin-top: 10px; border-radius: 8px; border: 1px solid var(--lumen-orange); }
-
-#pay-button {
-    background: #28a745; color: white; width: 100%; padding: 20px;
-    font-size: 1.2rem; border: none; border-radius: 10px; margin-top: 25px; font-weight: bold; cursor: pointer;
-}
-
-/* Admin Specifics */
-.admin-header { border-bottom: 2px solid #007bff; }
-.on-duty { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; }
-.off-duty { background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; }
-.job-card { background: var(--card-bg); padding: 20px; border-radius: 12px; border-left: 5px solid var(--lumen-orange); margin-top: 20px; }
-.admin-photo-view { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; margin-top: 10px; }
+.job-card { background: var(--card-bg); padding: 15px; margin-bottom: 15px; border-radius: 8px; border-left: 5px solid var(--primary); }
 
