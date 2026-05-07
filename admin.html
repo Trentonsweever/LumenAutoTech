@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lumen COMMAND</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="admin-body">
+    <header class="admin-header">
+        <div class="logo">LUMEN COMMAND</div>
+        <div id="status-badge" class="off-duty">SYSTEM ACTIVE</div>
+    </header>
+
+    <main id="admin-feed">
+        <h2>Live Requests</h2>
+        <div id="request-list">
+            <p>Waiting for incoming I-30 requests...</p>
+        </div>
+    </main>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import firebaseConfig from './config.js';
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+        const listDiv = document.getElementById('request-list');
+
+        onValue(ref(db, 'requests'), (snapshot) => {
+            const data = snapshot.val();
+            listDiv.innerHTML = ""; 
+            
+            for (let id in data) {
+                const req = data[id];
+                const card = document.createElement('div');
+                card.className = 'job-card';
+                card.innerHTML = `
+                    <h3>${req.name} - ${req.service.toUpperCase()}</h3>
+                    <p><strong>Direction:</strong> ${req.direction === 'north' ? 'Toward LR' : 'Toward Hot Springs'}</p>
+                    <p><strong>Marker:</strong> ${req.mile_marker || 'Off-Interstate'}</p>
+                    <div style="display: flex; gap: 10px; margin-top: 15px;">
+                        <button onclick="window.open('tel:${req.phone}')" class="geo-btn" style="flex: 1;">📞 CALL</button>
+                        <button onclick="window.open('https://www.google.com/maps/search/?api=1&query=${req.location?.lat},${req.location?.lng}')" class="geo-btn" style="flex: 1; background:#007bff;">📍 NAV</button>
+                    </div>
+                `;
+                listDiv.prepend(card);
+            }
+        });
+    </script>
+</body>
+</html>
+

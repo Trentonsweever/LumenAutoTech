@@ -1,44 +1,55 @@
 :root {
-    --lumen-orange: #ff6600; /* High-visibility orange */
-    --dark-bg: #1a1a1a;
-    --card-bg: #2d2d2d;
+    --lumen-orange: #ff6600;
+    --dark-bg: #121212;
+    --card-bg: #1e1e1e;
+    --input-bg: #2a2a2a;
 }
 
 body {
     background-color: var(--dark-bg);
     color: white;
-    font-family: 'Segoe UI', sans-serif;
+    font-family: 'Inter', -apple-system, sans-serif;
     margin: 0; padding: 20px;
 }
 
 header {
     display: flex; justify-content: space-between; align-items: center;
-    padding-bottom: 20px; border-bottom: 1px solid #444;
+    padding-bottom: 20px; border-bottom: 2px solid var(--lumen-orange);
 }
 
-.logo { font-weight: bold; font-size: 1.2rem; color: var(--lumen-orange); }
+.logo { font-weight: 800; font-size: 1.4rem; letter-spacing: -1px; }
 
 .call-btn {
-    background: var(--lumen-orange); color: white; padding: 10px 20px;
-    border-radius: 5px; text-decoration: none; font-weight: bold;
+    background: var(--lumen-orange); color: white; padding: 10px 18px;
+    border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 0.9rem;
 }
 
+/* Form Styling */
 #help-form input, #help-form select {
-    width: 100%; padding: 15px; margin: 10px 0;
-    background: #333; border: 1px solid #444; color: white; border-radius: 8px;
+    width: 100%; padding: 15px; margin: 10px 0; box-sizing: border-box;
+    background: var(--input-bg); border: 1px solid #333; color: white; border-radius: 8px;
 }
 
-.geo-btn { background: #444; color: white; border: none; width: 100%; padding: 10px; cursor: pointer; }
+.form-group-dark { background: #1a1a1a; padding: 15px; border-radius: 8px; margin: 10px 0; }
+
+.geo-btn { 
+    background: #444; color: white; border: none; width: 100%; padding: 12px; 
+    border-radius: 8px; cursor: pointer; margin-top: 10px; font-weight: 600;
+}
+
+.upload-btn { background: #333; border: 1px dashed var(--lumen-orange); color: white; width: 100%; padding: 12px; border-radius: 8px; cursor: pointer; }
+
+#photo-preview { width: 100%; margin-top: 10px; border-radius: 8px; border: 1px solid var(--lumen-orange); }
 
 #pay-button {
     background: #28a745; color: white; width: 100%; padding: 20px;
-    font-size: 1.2rem; border: none; border-radius: 8px; margin-top: 20px;
+    font-size: 1.2rem; border: none; border-radius: 10px; margin-top: 25px; font-weight: bold; cursor: pointer;
 }
 
-.status-card {
-    background: var(--card-bg); padding: 30px; border-radius: 15px;
-    text-align: center; margin-top: 50px;
-}
-
-.cancel-btn { background: none; color: #ff4444; border: 1px solid #ff4444; margin-top: 20px; padding: 5px 10px; cursor: pointer; }
+/* Admin Specifics */
+.admin-header { border-bottom: 2px solid #007bff; }
+.on-duty { background: #28a745; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; }
+.off-duty { background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; font-weight: bold; }
+.job-card { background: var(--card-bg); padding: 20px; border-radius: 12px; border-left: 5px solid var(--lumen-orange); margin-top: 20px; }
+.admin-photo-view { width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px; margin-top: 10px; }
 

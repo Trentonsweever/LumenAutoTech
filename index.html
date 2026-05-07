@@ -3,22 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lumen Auto Tech | Roadside Assistance</title>
+    <title>Lumen Auto Tech | I-30 Roadside</title>
     <link rel="stylesheet" href="style.css">
-    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.x.x/firebase-database.js"></script>
 </head>
 <body>
-
     <header>
         <div class="logo">LUMEN AUTO TECH</div>
-        <a href="tel:YOUR_PHONE_NUMBER" class="call-btn">CALL NOW</a>
+        <a href="tel:5555555555" class="call-btn">CALL NOW</a>
     </header>
 
     <main id="app-container">
         <section id="request-section">
-            <h1>Need a hand?</h1>
-            <p>I-30 Corridor & Little Rock Area</p>
+            <h1>Need Roadside Help?</h1>
+            <p>Rapid Response for the I-30 Corridor</p>
             
             <form id="help-form">
                 <input type="text" id="cust-name" placeholder="Your Name" required>
@@ -28,32 +25,43 @@
                     <option value="tire">Flat Tire Change</option>
                     <option value="jump">Battery Jumpstart</option>
                     <option value="fuel">Fuel Delivery</option>
-                    <option value="bulb">Bulb Replacement</option>
                 </select>
 
-                <button type="button" onclick="getLocation()" class="geo-btn">📍 Pin My Location</button>
-                <p id="location-status">Location not set</p>
-
-                <div id="payment-container">
-                    <p class="price-note">Dispatch Fee: $40.00 (Non-refundable once en route)</p>
-                    <button type="submit" id="pay-button">Pay & Dispatch</button>
+                <div class="form-group-dark">
+                    <label>Are you on the Interstate?</label>
+                    <div class="radio-group">
+                        <input type="radio" name="on_interstate" value="yes" id="is-i"> Yes
+                        <input type="radio" name="on_interstate" value="no" id="not-i" checked> No
+                    </div>
                 </div>
+
+                <div id="interstate-details" style="display:none;">
+                    <select id="direction">
+                        <option value="none">-- Direction --</option>
+                        <option value="north">Toward Little Rock (Northbound)</option>
+                        <option value="south">Toward Hot Springs (Southbound)</option>
+                    </select>
+                    <input type="text" id="mile-marker" placeholder="Mile Marker / Exit #">
+                </div>
+
+                <button type="button" id="geo-btn" class="geo-btn">📍 Pin My Location</button>
+                <p id="location-status">Location not set</p>
+                </div>
+
+                <button type="submit" id="pay-button">Request Dispatch</button>
             </form>
         </section>
 
         <section id="status-section" style="display:none;">
             <div class="status-card">
-                <h2 id="job-status">Waiting for Tech...</h2>
-                <div id="eta-box">ETA: Calculating...</div>
-                <div id="map-placeholder">
-                    <p>Live map will appear here once tech is en route.</p>
-                </div>
-                <button onclick="cancelJob()" class="cancel-btn">Cancel Request</button>
+                <h2>Request Sent!</h2>
+                <p>Checking technician availability...</p>
+                <div id="eta-box">Connecting to Lumen Command...</div>
             </div>
         </section>
     </main>
 
-    <script src="app.js"></script>
+    <script type="module" src="app.js"></script>
 </body>
 </html>
 
