@@ -9,7 +9,7 @@ let userLocation = null;
 let currentRequestId = null;
 let myTimestamp = null;
 
-// 1. GATEKEEPER
+// --- GATEKEEPER ---
 onValue(ref(db, 'system_settings/status'), (snap) => {
     const s = snap.val() || 'off';
     const form = document.getElementById('request-section');
@@ -26,7 +26,7 @@ onValue(ref(db, 'system_settings/status'), (snap) => {
     }
 });
 
-// 2. FORM HELPERS
+// --- UI HELPERS ---
 document.querySelectorAll('input[name="on_interstate"]').forEach(r => {
     r.addEventListener('change', e => document.getElementById('interstate-details').style.display = e.target.value === 'yes' ? 'block' : 'none');
 });
@@ -35,10 +35,10 @@ document.getElementById('geo-btn').addEventListener('click', () => {
     navigator.geolocation.getCurrentPosition(p => {
         userLocation = { lat: p.coords.latitude, lng: p.coords.longitude };
         document.getElementById('location-status').textContent = "✅ GPS Linked";
-    });
+    }, () => { alert("Please enable location services."); });
 });
 
-// 3. SUBMIT & DYNAMIC QUEUE
+// --- SUBMISSION & QUEUE ---
 document.getElementById('help-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     currentRequestId = Date.now().toString();
@@ -60,7 +60,6 @@ document.getElementById('help-form').addEventListener('submit', async (e) => {
     document.getElementById('request-section').style.display = 'none';
     document.getElementById('status-section').style.display = 'block';
 
-    // Monitor the queue and this specific request
     onValue(ref(db, 'requests'), (snap) => {
         const allData = snap.val();
         if (!allData || !allData[currentRequestId]) return;
@@ -70,27 +69,32 @@ document.getElementById('help-form').addEventListener('submit', async (e) => {
         const title = document.getElementById('status-title');
         const body = document.getElementById('status-body');
 
-        // Logic: How many people have a status of 'accepted' or 'pending' AND a timestamp older than mine?
-        const activeRequests = Object.values(allData).filter(req => 
+        // Logic: How many Pending or Accepted jobs have an older timestamp than mine?
+        const othersAhead = Object.values(allData).filter(req => 
             (req.status === 'accepted' || req.status === 'pending') && req.timestamp < myTimestamp
         );
-        const myPosition = activeRequests.length + 1;
+        const myPosition = othersAhead.length + 1;
 
         if (myData.status === 'pending') {
-            if (myPosition > 1) {
-                pill.className = "status-pill waitlist"; pill.textContent = "IN QUEUE";
-                title.textContent = "Technician Busy";
-                body.innerHTML = `You are currently on our waitlist.<br><b>Your Position: #${myPosition}</b><br>We will head your way as soon as possible.`;
-            } else {
-                pill.className = "status-pill pending"; pill.textContent = "PENDING";
-                title.textContent = "Dispatching...";
-                body.textContent = "Technician is reviewing your location now.";
-            }
+            pill.className = "status-pill waitlist";
+            pill.textContent = "WAITING";
+            title.textContent = (myPosition > 1) ? "Waitlist Active" : "Dispatching...";
+            body.innerHTML = (myPosition > 1) ? `Technician Busy. <b>Position: #${myPosition}</b>` : "Reviewing your request now...";
         } else if (myData.status === 'accepted') {
-            pill.className = "status-pill enroute"; pill.textContent = "EN ROUTE";
-            title.textContent = "Help is Coming!";
-            body.innerHTML = "Lumen Tech is moving to your location.<br><b>Stay in your vehicle.</b>";
-            document.getElementById('tech-link').style.display = "block";
+            if (myPosition > 1) {
+                pill.className = "status-pill enroute";
+                pill.style.background = "#007bff";
+                pill.textContent = "CLAIMED";
+                title.textContent = "You're in Line!";
+                body.innerHTML = `Lumen Tech has <b>accepted</b> your job! <br>You are <b>#${myPosition}</b> in line. We'll head your way next.`;
+            } else {
+                pill.className = "status-pill enroute";
+                pill.style.background = "#28a745";
+                pill.textContent = "EN ROUTE";
+                title.textContent = "Help is Coming!";
+                body.innerHTML = "Lumen Tech is moving to your location.<br><b>Stay in your vehicle.</b>";
+                document.getElementById('tech-link').style.display = "block";
+            }
         } else if (myData.status === 'completed') {
             pill.textContent = "FINISHED";
             title.textContent = "Mission Complete";
@@ -99,13 +103,13 @@ document.getElementById('help-form').addEventListener('submit', async (e) => {
         } else if (myData.status.startsWith('cancelled_')) {
             pill.textContent = "CLOSED"; pill.style.background = "#444";
             title.textContent = "Request Closed";
-            body.innerHTML = `Status: ${myData.reason || 'Service unavailable'}`;
+            body.innerHTML = `Reason: ${myData.reason || 'Service unavailable'}`;
             document.getElementById('cancel-btn').style.display = "none";
         }
     });
 });
 
 window.cancelRequest = function() {
-    if (confirm("Cancel?")) { update(ref(db, 'requests/'+currentRequestId), {status:'cancelled'}); location.reload(); }
+    if (confirm("Cancel help request?")) { update(ref(db, 'requests/'+currentRequestId), {status:'cancelled'}); location.reload(); }
 };
 
