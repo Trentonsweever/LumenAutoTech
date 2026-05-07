@@ -10,9 +10,9 @@
     <header class="admin-header">
         <div class="logo">LUMEN COMMAND</div>
         <div id="admin-controls">
-            <button onclick="setStatus('on')" id="btn-on" class="off-duty">ON DUTY</button>
-            <button onclick="setStatus('break')" id="btn-break" class="off-duty">BREAK</button>
-            <button onclick="setStatus('off')" id="btn-off" class="off-duty">OFF DUTY</button>
+            <button onclick="setStatus('on')" id="btn-on">ON DUTY</button>
+            <button onclick="setStatus('break')" id="btn-break">BREAK</button>
+            <button onclick="setStatus('off')" id="btn-off">OFF DUTY</button>
         </div>
     </header>
 
@@ -29,70 +29,62 @@
         const db = getDatabase(app);
         
         let currentStatus = "off";
-        let activeJobsCount = 0;
-        let inactivityTimeout;
+        let lastCount = 0;
 
-        // 1. Independent Buttons Logic
-        window.setStatus = function(s) {
-            set(ref(db, 'system_settings/status'), s);
-        };
+        window.setStatus = (s) => set(ref(db, 'system_settings/status'), s);
 
         onValue(ref(db, 'system_settings/status'), (snap) => {
-            currentStatus = snap.val() || 'off';
-            document.getElementById('btn-on').className = currentStatus === 'on' ? 'on-duty' : 'off-duty';
-            document.getElementById('btn-break').className = currentStatus === 'break' ? 'on-break' : 'off-duty';
-            document.getElementById('btn-off').className = currentStatus === 'off' ? 'off-duty' : 'off-duty';
-            resetTimer();
+            const s = snap.val() || 'off';
+            document.getElementById('btn-on').className = s === 'on' ? 'on-duty' : 'off-duty';
+            document.getElementById('btn-break').className = s === 'break' ? 'on-break' : 'off-duty';
+            document.getElementById('btn-off').className = s === 'off' ? 'off-duty-active' : 'off-duty';
         });
 
-        // 2. Inactivity Dead Man's Switch
-        function resetTimer() {
-            clearTimeout(inactivityTimeout);
-            if (currentStatus === 'on' && activeJobsCount === 0) {
-                inactivityTimeout = setTimeout(() => { setStatus('off'); alert('Logged off due to inactivity.'); }, 30 * 60 * 1000);
-            }
-        }
-
-        window.updateJob = (id, status) => {
-            if (status === 'declined') remove(ref(db, 'requests/'+id));
-            else update(ref(db, 'requests/'+id), { status: status });
+        window.cancelJob = (id) => {
+            const r = prompt("1: Capacity (No Charge)\n2: No-Show (Fee applies)\n3: Out of Zone/Safety\n4: Clear/Delete");
+            if (r === "1") update(ref(db, 'requests/'+id), {status:'cancelled_tech', reason:'Job exceeds capacity'});
+            else if (r === "2") update(ref(db, 'requests/'+id), {status:'cancelled_noshow', reason:'Customer No-Show'});
+            else if (r === "3") update(ref(db, 'requests/'+id), {status:'cancelled_safety', reason:'Safety/Zone Issue'});
+            else if (r === "4") remove(ref(db, 'requests/'+id));
         };
 
-        // 3. Render Jobs with Finish Logic
+        window.updateJob = (id, s) => update(ref(db, 'requests/'+id), { status: s });
+
         onValue(ref(db, 'requests'), (snapshot) => {
             const data = snapshot.val();
             const list = document.getElementById('request-list');
             list.innerHTML = "";
-            activeJobsCount = 0;
+            
+            if (data) {
+                const count = Object.keys(data).length;
+                if (count > lastCount) new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+                lastCount = count;
 
-            for (let id in data) {
-                const req = data[id];
-                if (!req || req.status === 'cancelled' || req.status === 'completed') continue;
-                if (req.status === 'accepted') activeJobsCount++;
+                for (let id in data) {
+                    const req = data[id];
+                    if (!req || req.status === 'cancelled' || req.status.startsWith('cancelled_') || req.status === 'completed') continue;
 
-                const card = document.createElement('div');
-                card.className = 'job-card';
-                if (req.status === 'accepted') card.style.borderColor = "var(--success)";
+                    const card = document.createElement('div');
+                    card.className = 'job-card';
+                    if (req.status === 'accepted') card.style.borderColor = "#28a745";
 
-                card.innerHTML = `
-                    <h3>${req.name} - ${req.service}</h3>
-                    <p>${req.on_interstate === 'yes' ? `I-30 ${req.direction} @ MM ${req.mile_marker}` : 'LOCAL'}</p>
-                    <div class="admin-actions">
-                        ${req.status === 'pending' ? `
-                            <button onclick="updateJob('${id}', 'accepted')" style="background:var(--success);">ACCEPT</button>
-                            <button onclick="updateJob('${id}', 'declined')" style="background:var(--danger);">DECLINE</button>
-                        ` : `
-                            <button onclick="window.open('tel:${req.phone}')" style="background:#555;">CALL</button>
-                            <button onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${req.location.lat},${req.location.lng}')" style="background:#007bff;">NAV</button>
-                            <button onclick="updateJob('${id}', 'completed')" style="background:var(--success);">FINISH</button>
-                        `}
-                    </div>
-                `;
-                list.prepend(card);
+                    card.innerHTML = `
+                        <h3>${req.name}</h3>
+                        <p>${req.service.toUpperCase()} | ${req.on_interstate === 'yes' ? req.direction : 'LOCAL'}</p>
+                        <div class="admin-actions">
+                            ${req.status === 'pending' ? 
+                                `<button onclick="updateJob('${id}', 'accepted')" style="background:#28a745;">ACCEPT</button>` : 
+                                `<button onclick="window.open('tel:${req.phone}')" style="background:#444;">CALL</button>
+                                 <button onclick="window.open('https://www.google.com/maps/search/?api=1&query=${req.location?.lat},${req.location?.lng}')" style="background:#007bff;">NAV</button>
+                                 <button onclick="updateJob('${id}', 'completed')" style="background:#28a745;">FINISH</button>`
+                            }
+                            <button onclick="cancelJob('${id}')" style="background:#dc3545;">CANCEL</button>
+                        </div>
+                    `;
+                    list.prepend(card);
+                }
             }
-            resetTimer();
         });
-        window.addEventListener('mousemove', resetTimer);
     </script>
 </body>
 </html>

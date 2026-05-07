@@ -9,7 +9,7 @@
 <body>
     <header>
         <div class="logo">LUMEN AUTO TECH</div>
-        <a href="tel:5015550000" id="tech-link" style="display:none; color:var(--primary); text-decoration:none; font-weight:bold;">📞 CALL TECH</a>
+        <a href="tel:5015550000" id="tech-link" style="display:none; color:#ffc107; text-decoration:none; font-weight:bold;">📞 CALL TECH</a>
     </header>
 
     <main id="app-container">
@@ -26,8 +26,8 @@
                     <option value="fuel">Fuel Delivery</option>
                     <option value="lockout">Lockout</option>
                 </select>
-                <div style="background:#222; padding:10px; border-radius:5px;">
-                    <label>On Interstate?</label>
+                <div style="background:#222; padding:10px; border-radius:5px; margin:10px 0;">
+                    <label>On Interstate?</label><br>
                     <input type="radio" name="on_interstate" value="yes"> Yes
                     <input type="radio" name="on_interstate" value="no" checked> No
                 </div>
@@ -48,11 +48,11 @@
             <div class="status-card">
                 <div id="status-pill" class="status-pill pending">CONNECTING</div>
                 <h2 id="status-title">Request Received</h2>
-                <div id="status-body" style="margin:15px 0; color:#ccc;">
+                <div id="status-body" style="margin:15px 0; color:#ccc; line-height:1.5;">
                     Searching for technician availability...
                 </div>
                 <hr style="border:0; border-top:1px solid #333; margin:15px 0;">
-                <button onclick="cancelRequest()" id="cancel-btn" class="geo-btn" style="background:#444;">Cancel Request</button>
+                <button onclick="cancelRequest()" id="cancel-btn" class="geo-btn" style="background:#444;">Cancel My Request</button>
             </div>
         </section>
     </main>
