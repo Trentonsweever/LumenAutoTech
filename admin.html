@@ -9,45 +9,120 @@
 <body class="admin-body">
     <header class="admin-header">
         <div class="logo">LUMEN COMMAND</div>
-        <div id="status-badge" class="off-duty">SYSTEM ACTIVE</div>
+        <button id="duty-btn" class="off-duty" onclick="toggleDuty()">OFF DUTY</button>
     </header>
 
     <main id="admin-feed">
         <h2>Live Requests</h2>
-        <div id="request-list">
-            <p>Waiting for incoming I-30 requests...</p>
-        </div>
+        <div id="request-list"></div>
     </main>
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, update, remove, set } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
         import firebaseConfig from './config.js';
 
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-        const listDiv = document.getElementById('request-list');
+        
+        let currentStatus = "off";
+        let activeJobsCount = 0;
+        let lastRequestCount = 0;
+        let inactivityTimeout;
+        const alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
 
+        // 1. NOTIFICATIONS & INACTIVITY
+        function resetInactivityTimer() {
+            clearTimeout(inactivityTimeout);
+            if (currentStatus === "on" && activeJobsCount === 0) {
+                inactivityTimeout = setTimeout(() => {
+                    updateDutyStatus("off");
+                    alert("System: Logged off due to 30 mins of inactivity.");
+                }, 30 * 60 * 1000);
+            }
+        }
+
+        function playNewJobAlert() {
+            alertSound.play();
+            if (Notification.permission === 'granted') {
+                new Notification("NEW LUMEN REQUEST", { body: "Customer needs help on I-30!" });
+            }
+        }
+
+        // 2. DUTY TOGGLE LOGIC
+        window.updateDutyStatus = function(status) {
+            currentStatus = status;
+            const btn = document.getElementById('duty-btn');
+            set(ref(db, 'system_settings/status'), currentStatus);
+            
+            btn.textContent = currentStatus.toUpperCase() + (currentStatus === 'break' ? ' (PAUSED)' : '');
+            btn.className = currentStatus === 'on' ? 'on-duty' : (currentStatus === 'break' ? 'on-break' : 'off-duty');
+            resetInactivityTimer();
+        };
+
+        window.toggleDuty = function() {
+            if (Notification.permission !== 'granted') Notification.requestPermission();
+            if (currentStatus === "off") updateDutyStatus("on");
+            else if (currentStatus === "on") updateDutyStatus("break");
+            else updateDutyStatus("off");
+        };
+
+        // 3. JOB ACTIONS
+        window.updateJob = (id, status) => {
+            resetInactivityTimer();
+            if (status === 'declined') { 
+                if(confirm("Clear this request?")) remove(ref(db, 'requests/'+id)); 
+            } else {
+                update(ref(db, 'requests/'+id), { status: status });
+            }
+        };
+
+        // 4. DATA MONITORING
         onValue(ref(db, 'requests'), (snapshot) => {
             const data = snapshot.val();
-            listDiv.innerHTML = ""; 
-            
+            const list = document.getElementById('request-list');
+            list.innerHTML = "";
+            activeJobsCount = 0;
+
+            const currentCount = data ? Object.keys(data).length : 0;
+            if (currentCount > lastRequestCount) playNewJobAlert();
+            lastRequestCount = currentCount;
+
+            if (!data) { resetInactivityTimer(); return; }
+
             for (let id in data) {
                 const req = data[id];
+                if (req.status === 'cancelled') continue;
+                if (req.status === 'accepted') activeJobsCount++;
+
                 const card = document.createElement('div');
                 card.className = 'job-card';
+                if (req.status === 'accepted') card.style.borderLeft = "10px solid #28a745";
+
+                const locText = req.on_interstate === "yes" 
+                    ? `<p><b>DIR:</b> ${req.direction === 'north' ? 'Toward LR' : 'Toward HS'}<br><b>MM:</b> ${req.mile_marker}</p>`
+                    : `<p><b>LOCAL / OFF-INTERSTATE</b></p>`;
+
                 card.innerHTML = `
                     <h3>${req.name} - ${req.service.toUpperCase()}</h3>
-                    <p><strong>Direction:</strong> ${req.direction === 'north' ? 'Toward LR' : 'Toward Hot Springs'}</p>
-                    <p><strong>Marker:</strong> ${req.mile_marker || 'Off-Interstate'}</p>
-                    <div style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button onclick="window.open('tel:${req.phone}')" class="geo-btn" style="flex: 1;">📞 CALL</button>
-                        <button onclick="window.open('https://www.google.com/maps/search/?api=1&query=${req.location?.lat},${req.location?.lng}')" class="geo-btn" style="flex: 1; background:#007bff;">📍 NAV</button>
+                    ${locText}
+                    <div class="admin-actions">
+                        ${req.status === 'pending' ? `
+                            <button onclick="updateJob('${id}', 'accepted')" class="geo-btn" style="background:green;">ACCEPT</button>
+                            <button onclick="updateJob('${id}', 'declined')" class="geo-btn" style="background:red;">DECLINE</button>
+                        ` : `
+                            <button onclick="window.open('tel:${req.phone}')" class="geo-btn">📞 CALL</button>
+                            <button onclick="window.open('https://www.google.com/maps?q=${req.location?.lat},${req.location?.lng}')" class="geo-btn" style="background:#007bff;">📍 NAV</button>
+                            <button onclick="updateJob('${id}', 'declined')" class="geo-btn" style="background:#444;">FINISH</button>
+                        `}
                     </div>
                 `;
-                listDiv.prepend(card);
+                list.prepend(card);
             }
+            resetInactivityTimer();
         });
+
+        window.addEventListener('mousemove', resetInactivityTimer);
     </script>
 </body>
 </html>
