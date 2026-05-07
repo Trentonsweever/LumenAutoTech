@@ -69,7 +69,6 @@ document.getElementById('help-form').addEventListener('submit', async (e) => {
         const title = document.getElementById('status-title');
         const body = document.getElementById('status-body');
 
-        // Logic: How many Pending or Accepted jobs have an older timestamp than mine?
         const othersAhead = Object.values(allData).filter(req => 
             (req.status === 'accepted' || req.status === 'pending') && req.timestamp < myTimestamp
         );
@@ -82,17 +81,20 @@ document.getElementById('help-form').addEventListener('submit', async (e) => {
             body.innerHTML = (myPosition > 1) ? `Technician Busy. <b>Position: #${myPosition}</b>` : "Reviewing your request now...";
         } else if (myData.status === 'accepted') {
             if (myPosition > 1) {
+                // THE "QUEUED" ACCEPTED STATE
                 pill.className = "status-pill enroute";
-                pill.style.background = "#007bff";
+                pill.style.background = "#007bff"; // Blue for "Claimed/Accepted"
                 pill.textContent = "CLAIMED";
-                title.textContent = "You're in Line!";
-                body.innerHTML = `Lumen Tech has <b>accepted</b> your job! <br>You are <b>#${myPosition}</b> in line. We'll head your way next.`;
+                title.textContent = "You're in the Queue!";
+                body.innerHTML = `Lumen Tech has <b>accepted</b> your job. <br><b>Help will be coming</b> after the current dispatch is finished. <br>Your Position: #${myPosition}`;
+                document.getElementById('tech-link').style.display = "block";
             } else {
+                // THE "ACTIVE" ACCEPTED STATE
                 pill.className = "status-pill enroute";
-                pill.style.background = "#28a745";
+                pill.style.background = "#28a745"; // Green for "Moving"
                 pill.textContent = "EN ROUTE";
                 title.textContent = "Help is Coming!";
-                body.innerHTML = "Lumen Tech is moving to your location.<br><b>Stay in your vehicle.</b>";
+                body.innerHTML = "Lumen Tech is <b>now moving</b> to your location.<br><b>Stay in your vehicle.</b>";
                 document.getElementById('tech-link').style.display = "block";
             }
         } else if (myData.status === 'completed') {

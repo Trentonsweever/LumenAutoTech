@@ -39,7 +39,6 @@
         let lastCount = 0;
         let inactivityTimeout;
 
-        // --- STATUS & INACTIVITY ---
         window.setStatus = (s) => set(ref(db, 'system_settings/status'), s);
 
         onValue(ref(db, 'system_settings/status'), (snap) => {
@@ -54,13 +53,61 @@
         function resetTimer() {
             clearTimeout(inactivityTimeout);
             if (currentStatus === 'on') {
-                inactivityTimeout = setTimeout(() => { setStatus('off'); alert('Logged off due to inactivity.'); }, 30 * 60 * 1000);
+                inactivityTimeout = setTimeout(() => { setStatus('off'); }, 30 * 60 * 1000);
             }
         }
 
-        // --- JOB ACTIONS ---
         window.cancelJob = (id) => {
-            const r = prompt("1: Capacity (No Charge)\n2: No-Show (Fee applies)\n3: Safety/Zone\n4: DELETE/Clear");
+            const r = prompt("1: Capacity\n2: No-Show\n3: Safety\n4: DELETE");
             if (r === "1") update(ref(db, 'requests/'+id), {status:'cancelled_tech', reason:'Job exceeds capacity'});
-            else if (r === "2") update
+            else if (r === "2") update(ref(db, 'requests/'+id), {status:'cancelled_noshow', reason:'Customer No-Show'});
+            else if (r === "3") update(ref(db, 'requests/'+id), {status:'cancelled_safety', reason:'Safety/Zone Issue'});
+            else if (r === "4") remove(ref(db, 'requests/'+id));
+        };
+
+        window.updateJob = (id, s) => update(ref(db, 'requests/'+id), { status: s });
+
+        onValue(ref(db, 'requests'), (snapshot) => {
+            const data = snapshot.val();
+            const list = document.getElementById('request-list');
+            list.innerHTML = "";
+            if (!data) return;
+
+            const sorted = Object.keys(data).map(id => ({ id, ...data[id] }))
+                                 .sort((a, b) => a.timestamp - b.timestamp);
+
+            const activeJobs = sorted.filter(j => j.status === 'pending' || j.status === 'accepted');
+            if (activeJobs.length > lastCount) new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+            lastCount = activeJobs.length;
+
+            activeJobs.forEach((req, index) => {
+                const diff = Math.floor((Date.now() - req.timestamp) / 60000);
+                const card = document.createElement('div');
+                card.className = 'job-card';
+                // First job in the list gets a special "Active" border
+                card.style.borderLeft = (index === 0 && req.status === 'accepted') ? "8px solid #28a745" : "8px solid #444";
+                if (req.status === 'pending') card.style.borderLeft = "8px solid #ffc107";
+
+                card.innerHTML = `
+                    <div style="display:flex; justify-content:space-between; color:white;">
+                        <h3 style="margin:0;">${req.name}</h3>
+                        <span style="color:${diff >= 20 ? '#dc3545' : '#ffc107'}; font-weight:bold;">⏳ ${diff}m</span>
+                    </div>
+                    <p style="color:#ccc; margin:10px 0;"><b>${req.service.toUpperCase()}</b> | ${req.on_interstate === 'yes' ? req.direction : 'LOCAL'}</p>
+                    <div class="admin-actions" style="display:flex; gap:5px;">
+                        ${req.status === 'pending' ? 
+                            `<button onclick="updateJob('${req.id}', 'accepted')" style="background:#28a745; color:white; border:none; padding:10px; flex:1; border-radius:4px; font-weight:bold;">ACCEPT</button>` : 
+                            `<button onclick="window.open('tel:${req.phone}')" style="background:#444; color:white; border:none; padding:10px; flex:1; border-radius:4px;">CALL</button>
+                             <button onclick="window.open('https://www.google.com/maps/search/?api=1&query=${req.location?.lat},${req.location?.lng}')" style="background:#007bff; color:white; border:none; padding:10px; flex:1; border-radius:4px;">NAV</button>
+                             <button onclick="updateJob('${req.id}', 'completed')" style="background:#28a745; color:white; border:none; padding:10px; flex:1; border-radius:4px; font-weight:bold;">FINISH</button>`
+                        }
+                        <button onclick="cancelJob('${req.id}')" style="background:#dc3545; color:white; border:none; padding:10px; flex:1; border-radius:4px;">CANCEL</button>
+                    </div>`;
+                list.appendChild(card);
+            });
+        });
+        window.addEventListener('mousemove', resetTimer);
+    </script>
+</body>
+</html>
 
