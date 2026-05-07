@@ -13,7 +13,6 @@
     </header>
 
     <main id="admin-feed">
-        <h2>Live Requests</h2>
         <div id="request-list"></div>
     </main>
 
@@ -27,102 +26,83 @@
         
         let currentStatus = "off";
         let activeJobsCount = 0;
-        let lastRequestCount = 0;
+        let lastCount = 0;
         let inactivityTimeout;
-        const alertSound = new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg');
 
-        // 1. NOTIFICATIONS & INACTIVITY
-        function resetInactivityTimer() {
+        function resetTimer() {
             clearTimeout(inactivityTimeout);
             if (currentStatus === "on" && activeJobsCount === 0) {
-                inactivityTimeout = setTimeout(() => {
-                    updateDutyStatus("off");
-                    alert("System: Logged off due to 30 mins of inactivity.");
-                }, 30 * 60 * 1000);
+                inactivityTimeout = setTimeout(() => { updateDutyStatus("off"); }, 30 * 60 * 1000);
             }
         }
 
-        function playNewJobAlert() {
-            alertSound.play();
-            if (Notification.permission === 'granted') {
-                new Notification("NEW LUMEN REQUEST", { body: "Customer needs help on I-30!" });
-            }
-        }
-
-        // 2. DUTY TOGGLE LOGIC
         window.updateDutyStatus = function(status) {
             currentStatus = status;
             const btn = document.getElementById('duty-btn');
-            set(ref(db, 'system_settings/status'), currentStatus);
-            
-            btn.textContent = currentStatus.toUpperCase() + (currentStatus === 'break' ? ' (PAUSED)' : '');
-            btn.className = currentStatus === 'on' ? 'on-duty' : (currentStatus === 'break' ? 'on-break' : 'off-duty');
-            resetInactivityTimer();
+            set(ref(db, 'system_settings/status'), status);
+            btn.textContent = status.toUpperCase();
+            btn.className = status === 'on' ? 'on-duty' : (status === 'break' ? 'on-break' : 'off-duty');
+            resetTimer();
         };
 
         window.toggleDuty = function() {
-            if (Notification.permission !== 'granted') Notification.requestPermission();
             if (currentStatus === "off") updateDutyStatus("on");
             else if (currentStatus === "on") updateDutyStatus("break");
             else updateDutyStatus("off");
+            if (Notification.permission !== 'granted') Notification.requestPermission();
         };
 
-        // 3. JOB ACTIONS
         window.updateJob = (id, status) => {
-            resetInactivityTimer();
-            if (status === 'declined') { 
-                if(confirm("Clear this request?")) remove(ref(db, 'requests/'+id)); 
-            } else {
-                update(ref(db, 'requests/'+id), { status: status });
-            }
+            if (status === 'declined') { if(confirm("Clear?")) remove(ref(db, 'requests/'+id)); }
+            else update(ref(db, 'requests/'+id), { status: status });
         };
 
-        // 4. DATA MONITORING
         onValue(ref(db, 'requests'), (snapshot) => {
             const data = snapshot.val();
             const list = document.getElementById('request-list');
             list.innerHTML = "";
             activeJobsCount = 0;
 
-            const currentCount = data ? Object.keys(data).length : 0;
-            if (currentCount > lastRequestCount) playNewJobAlert();
-            lastRequestCount = currentCount;
-
-            if (!data) { resetInactivityTimer(); return; }
+            if (!data) { list.innerHTML = "<p>No active requests.</p>"; resetTimer(); return; }
+            
+            const count = Object.keys(data).length;
+            if (count > lastCount) {
+                new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+                if (Notification.permission === 'granted') new Notification("LUMEN: New Request!");
+            }
+            lastCount = count;
 
             for (let id in data) {
                 const req = data[id];
-                if (req.status === 'cancelled') continue;
+                if (!req || req.status === 'cancelled') continue;
                 if (req.status === 'accepted') activeJobsCount++;
 
                 const card = document.createElement('div');
                 card.className = 'job-card';
                 if (req.status === 'accepted') card.style.borderLeft = "10px solid #28a745";
 
-                const locText = req.on_interstate === "yes" 
-                    ? `<p><b>DIR:</b> ${req.direction === 'north' ? 'Toward LR' : 'Toward HS'}<br><b>MM:</b> ${req.mile_marker}</p>`
-                    : `<p><b>LOCAL / OFF-INTERSTATE</b></p>`;
+                const lat = req.location?.lat || 34.7465; // Default Little Rock
+                const lng = req.location?.lng || -92.2896;
 
                 card.innerHTML = `
-                    <h3>${req.name} - ${req.service.toUpperCase()}</h3>
-                    ${locText}
+                    <h3>${req.name || 'User'} - ${(req.service || 'Service').toUpperCase()}</h3>
+                    <p>${req.on_interstate === 'yes' ? `I-30 ${req.direction} @ MM ${req.mile_marker}` : 'LOCAL CALL'}</p>
                     <div class="admin-actions">
                         ${req.status === 'pending' ? `
                             <button onclick="updateJob('${id}', 'accepted')" class="geo-btn" style="background:green;">ACCEPT</button>
                             <button onclick="updateJob('${id}', 'declined')" class="geo-btn" style="background:red;">DECLINE</button>
                         ` : `
                             <button onclick="window.open('tel:${req.phone}')" class="geo-btn">📞 CALL</button>
-                            <button onclick="window.open('https://www.google.com/maps?q=${req.location?.lat},${req.location?.lng}')" class="geo-btn" style="background:#007bff;">📍 NAV</button>
+                            <button onclick="window.open('https://www.google.com/maps?q=${lat},${lng}')" class="geo-btn" style="background:#007bff;">📍 NAV</button>
                             <button onclick="updateJob('${id}', 'declined')" class="geo-btn" style="background:#444;">FINISH</button>
                         `}
                     </div>
                 `;
                 list.prepend(card);
             }
-            resetInactivityTimer();
+            resetTimer();
         });
-
-        window.addEventListener('mousemove', resetInactivityTimer);
+        window.addEventListener('mousemove', resetTimer);
     </script>
 </body>
 </html>
